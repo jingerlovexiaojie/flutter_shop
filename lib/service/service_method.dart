@@ -3,22 +3,24 @@ import 'dart:async';
 import 'dart:io';
 import '../config/service_url.dart';
 
-//获取首页主题内容
-Future getHomePageContent() async{
-  try{
+Future request(url, {formDate}) async {
+  try {
     print('开始获取首页数据');
     Response response;
     Dio dio = Dio();
-    dio.options.contentType = ContentType.parse("application/x-www-form-urlencoded");
-    var formDate ={'lon':'115.02932','lat':'35.76189'};
-    response = await dio.post(servicePath['homePageContent'],data: formDate);
-    if(response.statusCode == 200){
+    dio.options.contentType =
+        ContentType.parse("application/x-www-form-urlencoded");
+    if (formDate == null) {
+      response = await dio.post(servicePath[url]);
+    } else {
+      response = await dio.post(servicePath[url], data: formDate);
+    }
+    if (response.statusCode == 200) {
       return response.data;
-    }else{
+    } else {
       throw Exception('后端接口出现异常');
     }
-  }catch(e){
+  } catch (e) {
     return print('ERROR-----------');
   }
-
 }
