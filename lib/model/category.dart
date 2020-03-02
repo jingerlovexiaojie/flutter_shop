@@ -42,8 +42,8 @@ class BxMallSubDto{
   String mallCategoryName;
   String comments;
 
-  BxMallSubDto(this.mallSubId, this.mallCategoryId, this.mallCategoryName,
-      this.comments);
+  BxMallSubDto({this.mallSubId, this.mallCategoryId, this.mallCategoryName,
+    this.comments});
 
    BxMallSubDto.fromJson(Map<String,dynamic>json){
     mallSubId: json['mallSubId'];
