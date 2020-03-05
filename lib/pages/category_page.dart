@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_easyrefresh/easy_refresh.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_shop/model/categoryGoodsList.dart';
 import 'package:flutter_shop/provide/category_goods_list.dart';
@@ -95,7 +96,7 @@ class _LeftCategoryNavState extends State<LeftCategoryNav> {
     await request('getCategory').then((val) {
       var data = json.decode(val.toString());
       CategoryBigListModel category =
-          CategoryBigListModel.fromJson(data['data']);
+      CategoryBigListModel.fromJson(data['data']);
       setState(() {
         list = category.data;
       });
@@ -135,7 +136,7 @@ class _RightCategoryNavState extends State<RightCategoryNav> {
         decoration: BoxDecoration(
             color: Colors.white,
             border:
-                Border(bottom: BorderSide(width: 1, color: Colors.black12))),
+            Border(bottom: BorderSide(width: 1, color: Colors.black12))),
         child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: childCategory.childCategoryList.length,
@@ -149,13 +150,16 @@ class _RightCategoryNavState extends State<RightCategoryNav> {
 
   Widget _rightInkWell(int index, BxMallSubDto item) {
     bool isClick = false;
-    isClick = (index == Provide.value<ChildCategory>(context).childIndex)
+    isClick = (index == Provide
+        .value<ChildCategory>(context)
+        .childIndex)
         ? true
         : false;
     return InkWell(
       onTap: () {
         //点击改变,显示高亮颜色
-        Provide.value<ChildCategory>(context).changeChildIndex(index);
+        Provide.value<ChildCategory>(context)
+            .changeChildIndex(index, item.mallSubId);
         _getGoodsList(item.mallSubId);
       },
       child: Container(
@@ -170,15 +174,21 @@ class _RightCategoryNavState extends State<RightCategoryNav> {
 
   void _getGoodsList(String categorySubId) {
     var param = {
-      ' categoryId': Provide.value<ChildCategory>(context).categoryId,
+      ' categoryId': Provide
+          .value<ChildCategory>(context)
+          .categoryId,
       'categorySubId': categorySubId,
       'page': 1
     };
     request('getMallGoods', formDate: param).then((val) {
       var data = json.decode(val.toString());
       CategoryGoodsListModel goodsList = CategoryGoodsListModel.fromJson(data);
-      Provide.value<CategoryGoodsListProvider>(context)
-          .getGoodsList(goodsList.data);
+      if (goodsList.data == null) {
+        Provide.value<CategoryGoodsListProvider>(context).getGoodsList([]);
+      } else {
+        Provide.value<CategoryGoodsListProvider>(context)
+            .getGoodsList(goodsList.data);
+      }
     });
   }
 }
@@ -190,6 +200,11 @@ class CategoryGoodsList extends StatefulWidget {
 }
 
 class _CategoryGoodsListState extends State<CategoryGoodsList> {
+  GlobalKey<RefreshFooterState> _footerkey =
+  new GlobalKey<RefreshFooterState>();
+
+  var scrollerController = new ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -199,18 +214,77 @@ class _CategoryGoodsListState extends State<CategoryGoodsList> {
   Widget build(BuildContext context) {
     return Provide<CategoryGoodsListProvider>(
       builder: (context, child, data) {
-        return Expanded(
-          child: Container(
-            width: ScreenUtil().setWidth(570),
-            child: ListView.builder(
-                itemCount: data.goodsList.length,
-                itemBuilder: (context, index) {
-                  return _ListWidget(data.goodsList, index);
-                }),
-          ),
-        );
+        try {
+          if (Provide
+              .value<ChildCategory>(context)
+              .page == 1) {
+            //列表位置,放到最上面
+            scrollerController.jumpTo(0.0);
+          }
+        } catch (e) {
+          print('进入页面第一次初始化');
+        }
+
+        if (data.goodsList.length > 0) {
+          return Expanded(
+            child: Container(
+              width: ScreenUtil().setWidth(570),
+              child: EasyRefresh(
+                refreshFooter: ClassicsFooter(
+                  key: _footerkey,
+                  bgColor: Colors.white,
+                  textColor: Colors.pink,
+                  moreInfoColor: Colors.pink,
+                  showMore: true,
+                  noMoreText: Provide
+                      .value<ChildCategory>(context)
+                      .noMoreText,
+                  moreInfo: '加载中',
+                  loadReadyText: '上啦加载中...',
+                ),
+                child: ListView.builder(
+                    controller: scrollerController,
+                    itemCount: data.goodsList.length,
+                    itemBuilder: (context, index) {
+                      return _ListWidget(data.goodsList, index);
+                    }),
+                loadMore: () async {
+                  _getMoreList();
+                },
+              ),
+            ),
+          );
+        } else {
+          return Text('暂时没有数据');
+        }
       },
     );
+  }
+
+  void _getMoreList() {
+    Provide.value<ChildCategory>(context).addPage();
+
+    var param = {
+      ' categoryId': Provide
+          .value<ChildCategory>(context)
+          .categoryId,
+      'categorySubId': Provide
+          .value<ChildCategory>(context)
+          .subId,
+      'page': Provide
+          .value<ChildCategory>(context)
+          .page,
+    };
+    request('getMallGoods', formDate: param).then((val) {
+      var data = json.decode(val.toString());
+      CategoryGoodsListModel goodsList = CategoryGoodsListModel.fromJson(data);
+      if (goodsList.data == null) {
+        Provide.value<ChildCategory>(context).changeNOMore('没有更多了');
+      } else {
+        Provide.value<CategoryGoodsListProvider>(context)
+            .getMoreList(goodsList.data);
+      }
+    });
   }
 
   Widget _goodsImage(List newList, index) {
@@ -240,7 +314,7 @@ class _CategoryGoodsListState extends State<CategoryGoodsList> {
           Text(
             '价格:${newList[index].presentPrice}',
             style:
-                TextStyle(color: Colors.pink, fontSize: ScreenUtil().setSp(30)),
+            TextStyle(color: Colors.pink, fontSize: ScreenUtil().setSp(30)),
           ),
           Text(
             '价格:${newList[index].oriPrice}',
@@ -260,7 +334,7 @@ class _CategoryGoodsListState extends State<CategoryGoodsList> {
         decoration: BoxDecoration(
             color: Colors.white,
             border:
-                Border(bottom: BorderSide(width: 1.0, color: Colors.black12))),
+            Border(bottom: BorderSide(width: 1.0, color: Colors.black12))),
         child: Row(
           children: <Widget>[
             _goodsImage(newList, index),
